@@ -357,28 +357,21 @@ router.get('/test',function(req,res){
 
 
 
-//register page
+//register user page
 router.get('/register',function(req,res){
   res.render('register');
 });
 
 
-//register post
+//register user post
 router.post('/register', function(req,res){
-  const {name,nick_name, email, phone, password, password2} = req.body;
+  const {lname, fname, email, phone, address, city, state, password, password2} = req.body;
   let errors = [];
 
-  jade = email.slice(-3);
-  if (jade == "edu"){
-    console.log('good');
-    
-  }
-  else{
-    errors.push({msg: 'For security reason, only emails that ends with .edu is allowed (your school email)'});
-  }
 
 
-  if(!name || !email || !password || !password2) {
+
+  if(!lname || !fname || !address || !city || !state || !email || !password || !password2) {
     errors.push({msg: 'Please fill in all required fields'});
   }
 
@@ -389,8 +382,11 @@ router.post('/register', function(req,res){
   if(errors.length > 0) {
     res.render('register', {
       errors,
-      name,
-      nick_name,
+      lname,
+      fname,
+      address,
+      city,
+      state,
       email,
       phone,
       password,
@@ -399,7 +395,7 @@ router.post('/register', function(req,res){
   }
   // validation passed
   else{
-    db.query("select COUNT(*) AS cnt from register where email = ? ",
+    db.query("select COUNT(*) AS cnt from users where email = ? ",
     email, function(err, data){
       if(err){
         res.send(err);
@@ -409,8 +405,11 @@ router.post('/register', function(req,res){
           errors.push({msg: 'Email is already Registered'});
           res.render('register', {
             errors,
-            name,
-            nick_name,
+            lname,
+            fname,
+            address,
+            city,
+            state,
             email,
             phone,
             password,
@@ -434,7 +433,7 @@ router.post('/register', function(req,res){
                   //set pass to hash;
                 let password = hash;
 
-                db.query("insert into `register`(full_name, nick_name, email, phone_number, password, confirmtoken) values ('"+name+"','"+nick_name+"', '"+email+"','"+phone+"','"+password+"','"+token+"')", function(err, rs){
+                db.query("insert into `users`(fname, lname,  email, phone_no, address, city, state, password, confirmtoken) values ('"+fname+"','"+lname+"', '"+email+"','"+phone+"','"+address+"','"+city+"', '"+state+"','"+password+"','"+token+"')", function(err, rs){
                   if(err){
                     req.flash('error', 'Account not Registered.Please try again')
                     res.redirect('/register');
@@ -506,6 +505,161 @@ router.post('/register', function(req,res){
 
 });
 
+//register business page
+router.get('/register-business',function(req,res){
+  res.render('register-business');
+});
+
+
+//register user post
+router.post('/register-business', function(req,res){
+  const {bname, email, phone, address, city, state, password, password2} = req.body;
+  let errors = [];
+
+console.log( bname,
+  address,
+  city,
+  state,
+  email,
+  phone,
+  password,
+  password2);
+
+
+  if(!bname ||  !address || !city || !state || !email || !password || !password2) {
+    errors.push({msg: 'Please fill in all required fields'});
+  }
+
+  if(password != password2){
+    errors.push({msg: 'Password do not match'});
+  }
+
+  if(errors.length > 0) {
+    res.render('register-business', {
+      errors,
+      bname,
+      address,
+      city,
+      state,
+      email,
+      phone,
+      password,
+      password2
+    });
+  }
+  // validation passed
+  else{
+    db.query("select COUNT(*) AS cnt from business where email = ? ",
+    email, function(err, data){
+      if(err){
+        res.send(err);
+      }
+      else{
+        if(data[0].cnt >0) {
+          errors.push({msg: 'Email is already Registered'});
+          res.render('register-business', {
+            errors,
+            bname,
+            address,
+            city,
+            state,
+            email,
+            phone,
+            password,
+            password2
+          });
+        }
+        else{    
+          async.waterfall([
+            function(done) {
+              crypto.randomBytes(20, function(err, buf) {
+                var token = buf.toString('hex');
+             
+                done(err, token);
+              });
+            },
+
+            function(token, done) {
+               bcrypt.genSalt(10,(err,salt)=>bcrypt.hash(password, salt, (err, hash)=>{
+                 if(err) throw err;
+
+                  //set pass to hash;
+                let password = hash;
+
+                db.query("insert into `business`(bus_name,  email, phone_no, address, city, state, password, confirmtoken) values ('"+bname+"', '"+email+"','"+phone+"','"+address+"','"+city+"', '"+state+"','"+password+"','"+token+"')", function(err, rs){
+                  if(err){
+
+                    res.render(err)
+                    //req.flash('error', 'Account not Registered.Please try again')
+                    //res.redirect('/register-business');
+                  }
+                  else{
+                    req.flash('success_msg', 'Please check your email inbox or junks to confirm your email to login')
+                    res.redirect('/login-business');
+                   }
+                });
+
+              }));
+
+              done(err, token, data);
+      
+            },
+
+            function(token, data, done) {
+       
+              var smtpTransport = nodemailer.createTransport({
+                host: 'smtp.gmail.com',
+                port: 465,
+               secure: true,
+                //service: 'Gmail', 
+                auth: {
+                  type: 'OAuth2',
+                  user: 'info@partifest.com',
+                  serviceClient: "102086845611841503378",
+                  privateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCwORit6+APfwO/\nVj4ofvy1Jpr+VRQZJdc9vBRtB2TCSCi1Q7C20iiqHLL62b7x6JQECrFFYXMlF8RE\nZJxyZXaJeq8hrAZSY64JGvj8XNMzAElA/gDeSJ6gWSJv/KU2NcAt3OoVSzTwoEo3\nmdvnEld2sebjaIw+drvwS/TeWFJtXVvqqtb0FhYulxHmAQyyVtR6q42Cyfh/aroc\nVZVHywxiCViqztwnpw3UF/1mxx0b6aqjVjxlxHHMz5qyWUBez7Ksgn6Hcv2laEzb\n8H6qOlvlBmo495lpxm1+8BRS4nMm8P5OMXeS7DnoFZ6ToNRKD10TxlqqzSAqaOke\nWKhNmbcPAgMBAAECggEABMkNeNjulQfPnpLao0I3iI/Le7FBwiEQmZY8Pm20oxX5\n4lo74pW4ZvjaigyprmtbbEoCCwPyGtrCCKgWxisn2eSL/EUYnYTOxWPcc7Xtl5/1\nXUod1JYc60vLBJwpZwcfTd+G4nHQC+ITwd4au56i42VCA4DjoLqcBegky849hsdh\nBopgEq5O0qL/DBvZ0gOhoLhaWePvkoQPq8ahFu/S7bMMwFmN/Rts3XVWgnA3io/Q\nrIF9dS47ocCShNL2THboIxS9AjN1Fp/a/POVbzoNAQ4Q7M2XatbdEj+tsdh3ltHk\nTQX1TMHaX5GbzSJ+xkffqYE0L1LxsUc+nOCKgSY1KQKBgQDc7bGOWjMFgWbEbfuo\nekFKBRf1di0C+X4eyLhpk0Yj/l/0juoFXhp7cKo565OLzo65VCbxD3RSpbrRyA7P\nAQq9goi+CA09oDdEX9KSIF8L219J5xCZI9+BHfw9Ku2Lym2nprBq5wYVJus8cTef\njuOz+UD8xKQJB0AGvTyTBHISUwKBgQDMMp55yezSfpu0vGk7Sj1j25EjZvSv7poP\nPi97jgdM9YaccIclVBw7L5EPCH+qaU5k3koB1KfAaE97wY+RVbt5HxvtPirsQ/cF\nx43s5sKV7qW9FY5cCJUu3i74Qu2+qMdcX1n49RhgGk4yLKEgrDaNn0+pGmgLjLRi\nPfDfxW6o1QKBgBFgtP2whKDjO9UpnYj0DNyop+jL4eCBBXWgbjkHt5WvNZcEAs5n\nR4f8JbemmxV9KubTArklcQ3rMVW8+cU4nMKpWN4xvfDiAFblfqe12iQRnl4uybRy\nCOucEzIwhTzgsF1mlCvkfir9w7UeZrSrRafrbDw1r31yT4v4KKKbz+k3AoGASyfC\nTj70rBCvTFkgPhM3/x3cEHSfUHV4PG392fLPWxLvBXshMqr/bQU31ZmiK11w3g02\nne/gAiAiSQFXzv0H8C9z/uCnuafWLklhQjU4nyhj1fEuIU+DYOmjzfoMOOUz4xqx\nKcFDxHNKHotwjm7z8TIWhr3SV5Xk+lej5ShsbzUCgYEAxJ1p8LLOwnJhB675o5wu\nVdLphwPu4lDA3YotuSdLf5b1K59nNN6OhynTzu4tw/TqGrzJFwzCrLK1o93077DF\nUQYm5hzxcTTKyXu+jgBnzCC9uix1a/wy2nBbxgYzZ5QyUMXYAwIg178k6k1CVRn2\nahIfmPd5R8ntWjQsl6dIUq8=\n-----END PRIVATE KEY-----\n"
+                },
+               tls:{
+              rejectUnauthorized:false
+               }
+              });
+        
+              
+              console.log(token);
+              var mailOptions = {
+                
+                to: email,
+                from: 'tjlayan20@gmail.com',
+                subject: 'PartiFest Email Confirmation',
+                text: 'You are receiving this because you just register for an account with us.\n\n' +
+                  'Please click on the following link, or paste this into your browser to confirm your email:\n\n' +
+                  'http://' + req.headers.host + '/confirm/' + token + '\n\n' +
+                  'Thanks.\n'
+              };
+              smtpTransport.sendMail(mailOptions, function(err) {
+                console.log('mail sent');
+        
+                req.flash('success_messages', 'A confirmation e-mail has been sent to ' + email + ' with further instructions.');
+                done(err, 'done');
+            
+              });
+          
+            }
+        
+          ],
+        
+          function(err){
+            if (err) return next(err);
+            res.redirect( '/login-business');
+          });
+
+
+        }
+      }  
+    });
+  }
+
+});
+
 router.get('/confrim-email', function(req, res) {
 
 
@@ -548,13 +702,28 @@ router.get('/login',function(req,res){
   res.render('login');
 });
 
+//Login business page
+router.get('/login-business',function(req,res){
+  res.render('login-business');
+});
 
 
-//login post
+
+//login user post
 router.post('/login', function(req, res, next) {
-  passport.authenticate('local',{
+  passport.authenticate('localuser',{
     successRedirect: '/profile',
     failureRedirect: '/login',
+    failureFlash: true
+    //session: false
+  }) (req, res, next);
+});
+
+//business login
+router.post('/login-business', function(req, res, next) {
+  passport.authenticate('localbu',{
+    successRedirect: '/profile',
+    failureRedirect: '/login-business',
     failureFlash: true
     //session: false
   }) (req, res, next);
@@ -575,12 +744,11 @@ router.get('/forget-password',function(req,res){
 
 // forget password post
 router.post('/forget-password', function(req, res, next){
-  const {email} = req.body;
-  console.log(email);
+  const {email, atype} = req.body;
   let errors = [];
 
-  if(!email) {
-    errors.push({msg: 'Please fill in your email'});
+  if(!email || !atype) {
+    errors.push({msg: 'Please fill in your email and choose account type'});
   }
 
   if(errors.length > 0) {
@@ -591,8 +759,12 @@ router.post('/forget-password', function(req, res, next){
   }
   // validation passed
   else{
-    console.log(email);
-    db.query("select * from register where email = ? ",
+
+    // users account
+
+    if(atype == 'User Account'){
+
+    db.query("select * from users where email = ? ",
     email, function(err, data){
       if(!data.length){
         errors.push({msg: 'That email is not registered '});
@@ -617,7 +789,7 @@ router.post('/forget-password', function(req, res, next){
   
         var d = new Date(Date.now()+3600000).toISOString().slice(0, 19).replace('T', ' ');
    
-        db.query("update register set resetpasswordtoken = ?, resetpasswordexpire = ? where id = ?",
+        db.query("update users set resetpasswordtoken = ?, resetpasswordexpire = ? where id = ?",
           [token, d, data[0].id], function(err, data){
             if(!err){
               console.log('inset me');
@@ -688,6 +860,112 @@ router.post('/forget-password', function(req, res, next){
 
    }
   });
+
+}
+
+// business account
+if (atype == 'Business Account'){
+
+  db.query("select * from business where email = ? ",
+    email, function(err, data){
+      if(!data.length){
+        errors.push({msg: 'That email is not registered '});
+        res.render('forget-password', {
+          errors,
+          email
+      
+        });
+      }
+      else{
+    
+  
+  async.waterfall([
+    function(done) {
+      crypto.randomBytes(20, function(err, buf) {
+        var token = buf.toString('hex');
+     
+        done(err, token);
+      });
+    },
+    function(token, done) {
+  
+        var d = new Date(Date.now()+3600000).toISOString().slice(0, 19).replace('T', ' ');
+   
+        db.query("update business set resetpasswordtoken = ?, resetpasswordexpire = ? where id = ?",
+          [token, d, data[0].id], function(err, data){
+            if(!err){
+              console.log('inset me');
+            }
+            else{
+              res.send(err);
+
+            }
+            
+          });
+        done(err, token, data);
+
+    },
+
+
+    function(token, data, done) {
+     
+      var smtpTransport = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        //service: 'Gmail', 
+        auth: {
+          type: 'OAuth2',
+          user: 'info@partifest.com',
+          serviceClient: "102086845611841503378",
+          privateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCwORit6+APfwO/\nVj4ofvy1Jpr+VRQZJdc9vBRtB2TCSCi1Q7C20iiqHLL62b7x6JQECrFFYXMlF8RE\nZJxyZXaJeq8hrAZSY64JGvj8XNMzAElA/gDeSJ6gWSJv/KU2NcAt3OoVSzTwoEo3\nmdvnEld2sebjaIw+drvwS/TeWFJtXVvqqtb0FhYulxHmAQyyVtR6q42Cyfh/aroc\nVZVHywxiCViqztwnpw3UF/1mxx0b6aqjVjxlxHHMz5qyWUBez7Ksgn6Hcv2laEzb\n8H6qOlvlBmo495lpxm1+8BRS4nMm8P5OMXeS7DnoFZ6ToNRKD10TxlqqzSAqaOke\nWKhNmbcPAgMBAAECggEABMkNeNjulQfPnpLao0I3iI/Le7FBwiEQmZY8Pm20oxX5\n4lo74pW4ZvjaigyprmtbbEoCCwPyGtrCCKgWxisn2eSL/EUYnYTOxWPcc7Xtl5/1\nXUod1JYc60vLBJwpZwcfTd+G4nHQC+ITwd4au56i42VCA4DjoLqcBegky849hsdh\nBopgEq5O0qL/DBvZ0gOhoLhaWePvkoQPq8ahFu/S7bMMwFmN/Rts3XVWgnA3io/Q\nrIF9dS47ocCShNL2THboIxS9AjN1Fp/a/POVbzoNAQ4Q7M2XatbdEj+tsdh3ltHk\nTQX1TMHaX5GbzSJ+xkffqYE0L1LxsUc+nOCKgSY1KQKBgQDc7bGOWjMFgWbEbfuo\nekFKBRf1di0C+X4eyLhpk0Yj/l/0juoFXhp7cKo565OLzo65VCbxD3RSpbrRyA7P\nAQq9goi+CA09oDdEX9KSIF8L219J5xCZI9+BHfw9Ku2Lym2nprBq5wYVJus8cTef\njuOz+UD8xKQJB0AGvTyTBHISUwKBgQDMMp55yezSfpu0vGk7Sj1j25EjZvSv7poP\nPi97jgdM9YaccIclVBw7L5EPCH+qaU5k3koB1KfAaE97wY+RVbt5HxvtPirsQ/cF\nx43s5sKV7qW9FY5cCJUu3i74Qu2+qMdcX1n49RhgGk4yLKEgrDaNn0+pGmgLjLRi\nPfDfxW6o1QKBgBFgtP2whKDjO9UpnYj0DNyop+jL4eCBBXWgbjkHt5WvNZcEAs5n\nR4f8JbemmxV9KubTArklcQ3rMVW8+cU4nMKpWN4xvfDiAFblfqe12iQRnl4uybRy\nCOucEzIwhTzgsF1mlCvkfir9w7UeZrSrRafrbDw1r31yT4v4KKKbz+k3AoGASyfC\nTj70rBCvTFkgPhM3/x3cEHSfUHV4PG392fLPWxLvBXshMqr/bQU31ZmiK11w3g02\nne/gAiAiSQFXzv0H8C9z/uCnuafWLklhQjU4nyhj1fEuIU+DYOmjzfoMOOUz4xqx\nKcFDxHNKHotwjm7z8TIWhr3SV5Xk+lej5ShsbzUCgYEAxJ1p8LLOwnJhB675o5wu\nVdLphwPu4lDA3YotuSdLf5b1K59nNN6OhynTzu4tw/TqGrzJFwzCrLK1o93077DF\nUQYm5hzxcTTKyXu+jgBnzCC9uix1a/wy2nBbxgYzZ5QyUMXYAwIg178k6k1CVRn2\nahIfmPd5R8ntWjQsl6dIUq8=\n-----END PRIVATE KEY-----\n"
+        },
+        tls:{
+          rejectUnauthorized:false
+        }
+      
+      });
+
+      
+      console.log(token);
+      var mailOptions = {
+        
+        to: data[0].Email,
+        from: 'tjlayan20@gmail.com',
+        subject: 'PartiFest Password Reset',
+        text: 'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
+          'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
+          'http://' + req.headers.host + '/reset/' + token + '\n\n' +
+          'If you did not request this, please ignore this email and your password will remain unchanged.\n'
+      };
+      smtpTransport.sendMail(mailOptions, function(err) {
+        console.log('mail sent');
+
+        if(!err){
+
+        req.flash('success_messages', 'An e-mail has been sent to ' + data[0].Email + ' with further instructions.');
+        done(err, 'done');
+
+        }
+    
+      });
+  
+    }
+
+  ],
+
+
+  function(err){
+    if (err) return next(err);
+    res.redirect( '/forget-password');
+  });
+
+   }
+  });
+
+}
+
+
 }
     
 });
@@ -760,6 +1038,23 @@ router.get('/page-not-found',function(req,res){
   res.render('page-not-found');
 });
 
+
+// print sticker business
+
+router.get('/sticker', function(req,res){
+  res.render('sticker');
+})
+
+router.get('/print', function(req,res){
+  console.log(req.texts);
+  res.render('print');
+});
+
+
+router.post('/print', function(req,res){
+  console.log(req.texts);
+  res.render('print');
+});
 
   
 module.exports = router;
